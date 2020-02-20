@@ -45,7 +45,7 @@ def distinct_words(corpus):
         Params:
             corpus (list of strings): corpus of document
         Return:
-            corpus_words (list of strings): list of distinct words across the corpus, sorted (using python 'sorted' function)
+            corpus_words (np.array of strings): list of distinct words across the corpus, sorted (using python 'sorted' function)
             num_corpus_words (integer): number of distinct words across the corpus
     """
     corpus_words = []
@@ -55,7 +55,7 @@ def distinct_words(corpus):
     corpus_words = sorted(corpus_words)  #  sort all words
     num_corpus_words = len(corpus_words)
 
-    return corpus_words, num_corpus_words
+    return np.array(corpus_words), num_corpus_words
 
 
 class SkipGramBatcherBase(object):
@@ -78,52 +78,50 @@ class SkipGramBatcherBase(object):
         self._voc_size = vocabulary_size
         
         self._corpus = build_vocabulary(corpus, vocabulary_size)
-        self._word2index = {}
-        self._index2word, dist_words = distinct_words(self._corpus)
+        self._word2token = {}
+        self._token2word, dist_words = distinct_words(self._corpus)
         assert dist_words == vocabulary_size, 'dist_num = {}'.format(dist_num)
-        for ind, word in enumerate(self._index2word):
-            self._word2index[word] = ind
+        for ind, word in enumerate(self._token2word):
+            self._word2token[word] = ind
         
-        self._corpus_indices = []
+        self._corpus_tokens = []
         for word in self._corpus:
-            self._corpus_indices.append(self._word2index[word])
-        self._corpus_indices = np.array(self._corpus_indices)
+            self._corpus_tokens.append(self._word2token[word])
+        self._corpus_tokens = np.array(self._corpus_tokens)
         self._neighbors_indent = np.zeros((batch_size, 2*window_size), dtype='int64')
         self._neighbors_indent += np.hstack([np.arange(-window_size, 0), np.arange(0, window_size)+1])
 
     def __len__(self):
         return int((self._n - 2*self._window_size) / self._batch_size)
 
-    def index_to_word(self, idx):
-        assert idx < self._voc_size
-        return self._index2word[idx]
-    
-    def word_to_index(self, word):
-        assert word in self._word2index.keys()
-        return self._word2index[word]
-    
-    def indices_to_onehot(self, idxs):
-        idxs = idxs.flatten()
-        n = len(idxs)
-        one_hots = np.zeros((n, self._voc_size))
-        one_hots[np.arange(n), idxs] = 1
-        return one_hots
-    
-    def onehot_to_index(self, v):
-        assert len(v) == self._voc_size
-        return np.argmax(v)
-    
-    def word_to_onehot(self, word):
-        return self.index_to_onehot(self.word_to_index(word))
-    
-    def onehot_to_word(self, v):
-        return self.index_to_word(self.onehot_to_index(word))
-    
+    def tokens_to_words(self, tokens):
+        """ Get corresponding words to tokens
+            Params:
+                tokens (np.array): array with tokens
+            Return:
+                words (list (maybe of lists)): array with words
+        """ 
+        return self._token2word[tokens].tolist()
+        
+    def words_to_tokens(self, words):
+        """ Get corresponding words to tokens
+            Params:
+                words (list): list with words which need to translate
+            Return:
+                tokens (np.array): array with tokens
+        """
+        tokens = []
+        for word in words:
+            assert word in self._word2token.keys()
+            tokens.append(self._word2token[word])
+
+        return np.array(tokens)
+
     def _get_next_batch(self):
         """ Return next batch with order specified in self._batchs_positions
             Return:
-                centrals (np.array()): batch of central words indices with shape (1, batch_size)
-                neighbours (np.array()): batch with indices of neighbour words. The size is (batch_size, 2*window_size)
+                centrals (np.array()): batch of central words tokens with shape (batch_size, )
+                neighbours (np.array()): batch with tokens of neighbour words. The size is (batch_size, 2*window_size)
         """
         if self._batch_start + self._batch_size > len(self._batchs_positions):
             return None, None
@@ -140,25 +138,6 @@ class SkipGramBatcherBase(object):
 
         self._batch_start += self._batch_size
         return centrals, neighbours
-
-    def batch_to_words(self, batch, batch_type='indices'):
-        """ Translate batch to human read view.
-            Params:
-               batch (np.array): some dimential array
-               batch_type (string): type of values in batch, possible value is 'indices', 'onehot'
-            Return:
-               words_batch (list): list with length as length of batch
-        """
-        assert batch_type in ['indices', 'onehot'], 'You can only use indices and onehot types'
-        transform_function = self.index_to_word if batch_type == 'indices' else self.onehot_to_word
-        
-        words_batch = []
-        for el in batch:
-            if not len(el.shape):
-                words_batch.append(transform_function(el))
-            else:
-                words_batch.append(self.batch_to_words(el, batch_type))
-        return words_batch
 
     def __iter__(self):
         self._batchs_positions = np.random.permutation(np.arange(self._window_size, self._n - self._window_size))
