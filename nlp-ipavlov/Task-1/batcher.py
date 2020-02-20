@@ -92,7 +92,7 @@ class SkipGramBatcherBase(object):
         self._neighbors_indent += np.hstack([np.arange(-window_size, 0), np.arange(0, window_size)+1])
 
     def __len__(self):
-        return self._n - 2*self._window_size
+        return int((self._n - 2*self._window_size) / self._batch_size)
 
     def index_to_word(self, idx):
         assert idx < self._voc_size
