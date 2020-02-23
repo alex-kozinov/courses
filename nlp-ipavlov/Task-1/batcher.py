@@ -131,8 +131,8 @@ class SkipGramBatcherBase(object):
         assert central_positions.shape == (self._batch_size, ), str(central_positions.shape)
         assert neighbours_positions.shape == (self._batch_size, 2*self._window_size), str(neighbours_positions.shape)
 
-        centrals = self._corpus_indices[central_positions]  # size(batch_size, )
-        neighbours = self._corpus_indices[neighbours_positions]  # size(batch_size, 2*window_size)
+        centrals = self._corpus_tokens[central_positions]  # size(batch_size, )
+        neighbours = self._corpus_tokens[neighbours_positions]  # size(batch_size, 2*window_size)
         assert centrals.shape == (self._batch_size, )
         assert neighbours.shape == (self._batch_size, 2*self._window_size)
 
