@@ -33,7 +33,7 @@ class LossAndDerivatives:
         """
 
         # YOUR CODE HERE    
-        return 
+        return np.absolute(X.dot(w) - Y)
 
     @staticmethod
     def l2_reg(w):
@@ -46,8 +46,8 @@ class LossAndDerivatives:
         Computes the L2 regularization term for the weight matrix w.
         """
         
-        # YOUR CODE HERE
-        return 
+        
+        return np.sum(w ** 2)
 
     @staticmethod
     def l1_reg(w):
@@ -61,7 +61,7 @@ class LossAndDerivatives:
         """
 
         # YOUR CODE HERE
-        return 
+        return np.sum(np.absolute(w))
 
     @staticmethod
     def no_reg(w):
@@ -113,7 +113,7 @@ class LossAndDerivatives:
         """
 
         # YOUR CODE HERE
-        return 
+        return 2 * w
 
     @staticmethod
     def l1_reg_derivative(w):
@@ -126,7 +126,7 @@ class LossAndDerivatives:
         """
 
         # YOUR CODE HERE
-        return 
+        return np.absolute / w
 
     @staticmethod
     def no_reg_derivative(w):
