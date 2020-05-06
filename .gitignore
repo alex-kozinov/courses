@@ -1,8 +1,11 @@
 .gitignore
 .DS_Store
+catboost_info
 __pycache__
 .ipynb_checkpoints
 *.pdf
 videos
 data
+models
 lib
+*.csv
