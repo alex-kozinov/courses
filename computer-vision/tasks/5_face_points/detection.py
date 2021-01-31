@@ -79,8 +79,7 @@ def get_transforms():
 
 
 def parse_sample(
-    sample,
-    dir_path
+    sample
 ):
     num_str = sample['filename']
     coordinates = sample.values[1:]
@@ -90,7 +89,7 @@ def parse_sample(
             for i in range(14)
         ]
     )
-    return dir_path + num_str, points
+    return num_str, points
 
 
 def dataset_gen(
