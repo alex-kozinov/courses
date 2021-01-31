@@ -78,6 +78,21 @@ def get_transforms():
     return train_transform, val_transform
 
 
+def parse_sample(
+    sample,
+    dir_path:
+):
+    num_str = sample['filename']
+    coordinates = sample.values[1:]
+    points = np.array(
+        [
+            (coordinates[2 * i], coordinates[2 * i + 1])
+            for i in range(14)
+        ]
+    )
+    return dir_path + num_str, points
+
+
 def dataset_gen(
     ds,
 ):
