@@ -372,7 +372,7 @@ def detect(model, test_img_dir):
     
     _, val_transform = get_transforms()
     
-    test_dataset = create_dataset(
+    test_dataset = create_test_dataset(
         test_img_dir,
         val_transform,
         val_transform,
