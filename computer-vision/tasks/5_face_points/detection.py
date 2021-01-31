@@ -306,6 +306,64 @@ def read_img_shapes(filenames, img_dir):
     for fname in filenames:
         img_shapes.append(imread(os.path.join(img_dir, fname)).shape[:2])
     return np.asarray(img_shapes)
+    
+    
+def test_dataset_gen(
+    ds,
+    dir_path
+):
+    def gen():
+        for filename in os.listdir(dir_path):
+            img_path = os.path.join(dir_path, filename)
+            points = np.ones([14, 2]) * 20
+            yield img_path, points
+    return gen
+
+def create_test_dataset(
+    test_img_dir,
+    transform,
+    reserve_transform,
+    test_batch_size=5,
+):
+    dataset = tf.data.Dataset.from_generator(
+        test_dataset_gen,
+        (tf.string, tf.float32),
+        output_shapes=(tf.TensorShape([]), tf.TensorShape([14, 2]))
+    )
+
+    def loader(x, y):
+        return tf.numpy_function(
+            func=load(),
+            inp=[x, y],
+            Tout=(tf.float32, tf.float32)
+        )
+    dataset = dataset.map(
+        loader,
+        num_parallel_calls=num_calls
+    )
+
+    def preprocessor(x, y):
+        return tf.numpy_function(
+            func=preprocess(transform,
+                            reserve_transform,
+                            num_trials=num_trials),
+            inp=[x, y],
+            Tout=(tf.float32, tf.float32)
+        )
+    dataset = dataset.map(
+        preprocessor,
+        num_parallel_calls=1
+    )
+
+    def set_shapes(img, kp, img_shape=(100, 100, 3)):
+        img.set_shape(img_shape)
+        kp.set_shape([28])
+        return img, kp
+    
+    dataset = dataset.map(set_shapes, num_parallel_calls=1)
+    dataset = dataset.batch(test_batch_size)
+    dataset = dataset.prefetch(1)
+    return dataset
 
 
 def detect(model, test_img_dir):
@@ -315,17 +373,10 @@ def detect(model, test_img_dir):
     _, val_transform = get_transforms()
     
     test_dataset = create_dataset(
-        None,
         test_img_dir,
         val_transform,
         val_transform,
-        dataset_gen=test_dataset_gen,
-        num_trials=1,
         batch_size=test_bs,
-        prefetch_size=1,
-        num_calls=1,
-        repeat=False,
-        shuffle=False
     )
     pred = model.predict(
         test_dataset,
