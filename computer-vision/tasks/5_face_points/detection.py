@@ -361,7 +361,7 @@ def create_test_dataset(
         return img, kp
     
     dataset = dataset.map(set_shapes, num_parallel_calls=1)
-    dataset = dataset.batch(test_batch_size)
+    dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(1)
     return dataset
 
