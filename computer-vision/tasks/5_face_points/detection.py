@@ -323,7 +323,7 @@ def create_test_dataset(
     test_img_dir,
     transform,
     reserve_transform,
-    test_batch_size=5,
+    batch_size=5,
 ):
     dataset = tf.data.Dataset.from_generator(
         test_dataset_gen,
