@@ -7,6 +7,8 @@ import pandas as pd
 
 from skimage.io import imread
 
+from sklearn.model_selection import train_test_split
+
 import tensorflow as tf
 from tensorflow.keras import Sequential
 from tensorflow.keras.callbacks import (EarlyStopping, ReduceLROnPlateau,
