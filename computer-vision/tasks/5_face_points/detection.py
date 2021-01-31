@@ -166,7 +166,6 @@ def create_dataset(
         num_parallel_calls=num_calls
     )
 
-    dataset = dataset.cache()
 
     def preprocessor(x, y):
         return tf.numpy_function(
