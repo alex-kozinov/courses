@@ -309,7 +309,6 @@ def read_img_shapes(filenames, img_dir):
     
     
 def test_dataset_gen(
-    ds,
     dir_path
 ):
     def gen():
@@ -326,7 +325,7 @@ def create_test_dataset(
     batch_size=5,
 ):
     dataset = tf.data.Dataset.from_generator(
-        test_dataset_gen,
+        test_dataset_gen(test_img_dir),
         (tf.string, tf.float32),
         output_shapes=(tf.TensorShape([]), tf.TensorShape([14, 2]))
     )
