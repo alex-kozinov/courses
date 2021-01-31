@@ -339,14 +339,14 @@ def create_test_dataset(
         )
     dataset = dataset.map(
         loader,
-        num_parallel_calls=num_calls
+        num_parallel_calls=1
     )
 
     def preprocessor(x, y):
         return tf.numpy_function(
             func=preprocess(transform,
                             reserve_transform,
-                            num_trials=num_trials),
+                            num_trials=1),
             inp=[x, y],
             Tout=(tf.float32, tf.float32)
         )
