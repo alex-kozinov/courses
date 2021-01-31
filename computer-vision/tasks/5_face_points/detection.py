@@ -51,7 +51,7 @@ def get_model():
     model.add(L.ReLU())
     model.add(L.Dense(28))
     model.compile(
-        optimizer=Adam(),
+        optimizer=Adam(learning_rate=0.0004),
         loss='mse',
     )
     return model
@@ -75,41 +75,14 @@ def get_transforms():
     )
     return train_transform, val_transform
 
-def parse_sample(
-    sample,
-    dir_path
-):
-    num_str = sample['filename']
-    coordinates = sample.values[1:]
-    points = np.array(
-        [
-            (coordinates[2 * i], coordinates[2 * i + 1])
-            for i in range(14)
-        ]
-    )
-    return dir_path + num_str, points
-
 
 def dataset_gen(
     ds,
-    dir_path
 ):
     def gen():
         for i in range(ds.shape[0]):
             sample = ds.iloc[i]
-            img_path, points = parse_sample(sample, dir_path=dir_path)
-            yield img_path, points
-    return gen
-
-
-def test_dataset_gen(
-    ds,
-    dir_path
-):
-    def gen():
-        for filename in os.listdir(dir_path):
-            img_path = os.path.join(dir_path, filename)
-            points = np.ones([14, 2]) * 20
+            img_path, points = parse_sample(sample)
             yield img_path, points
     return gen
 
@@ -131,11 +104,11 @@ def load():
 def preprocess(
     transform,
     reserve_transform,
-    num_trials
+    num_trials=10
 ):
     def f(
-        img,
-        kp
+        img: np.array,
+        kp: np.array
     ):
         kp = np.clip(kp, 0, None)
         for t in range(num_trials):
@@ -144,46 +117,40 @@ def preprocess(
                 break
         else:
             transformed = reserve_transform(image=img, keypoints=kp)
-        return transformed['image'].astype(
-            np.float32
-        ), np.array(
-            transformed['keypoints']
-        ).reshape(-1).astype(np.float32)
+        return transformed['image'].astype(np.float32), np.array(transformed['keypoints']).reshape(-1).astype(np.float32)
 
     return f
 
-def loader(x, y):
-    return tf.numpy_function(
-        func=load(),
-        inp=[x, y],
-        Tout=(tf.float32, tf.float32)
-    )
 
 def create_dataset(
     ds,
-    dir_path,
     transform,
     reserve_transform,
-    dataset_gen=dataset_gen,
     num_trials=20,
     batch_size=5,
     shuffle_buffer_size=200,
     prefetch_size=AUTOTUNE,
     num_calls=AUTOTUNE,
-    repeat=True,
-    shuffle=True,
 ):
-    gen = dataset_gen(ds, dir_path=dir_path)
+    gen = dataset_gen(ds)
     dataset = tf.data.Dataset.from_generator(
         gen,
         (tf.string, tf.float32),
         output_shapes=(tf.TensorShape([]), tf.TensorShape([14, 2]))
     )
 
+    def loader(x, y):
+        return tf.numpy_function(
+            func=load(),
+            inp=[x, y],
+            Tout=(tf.float32, tf.float32)
+        )
     dataset = dataset.map(
         loader,
         num_parallel_calls=num_calls
     )
+
+    dataset = dataset.cache()
 
     def preprocessor(x, y):
         return tf.numpy_function(
@@ -203,41 +170,118 @@ def create_dataset(
         kp.set_shape([28])
         return img, kp
     dataset = dataset.map(set_shapes, num_parallel_calls=num_calls)
-    if repeat:
-        dataset = dataset.repeat()
-    if shuffle:
-        dataset = dataset.shuffle(shuffle_buffer_size)
+
+    dataset = dataset.repeat()
+    dataset = dataset.shuffle(shuffle_buffer_size)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(prefetch_size)
     return dataset
 
 
+def process_data(
+    train_csv_path,
+    imgs_dir,
+    test_size=0.2,
+    shuffle=True,
+    num_trials=20,
+    batch_size=5,
+    shuffle_buffer_size=200,
+    prefetch_size=AUTOTUNE,
+    num_calls=AUTOTUNE
+):
+    ds = pd.read_csv(train_csv_path)
+    ds['filename'] = imgs_dir + ds['filename']
 
-def train_detector(train_gt, train_img_dir, fast_train=False):
-    if fast_train:
-        return
-    train_gt = train_gt.iloc[:20]
+    ds_train, ds_val = train_test_split(
+        ds,
+        test_size=test_size,
+        shuffle=shuffle
+    )
+    
     train_transform, val_transform = get_transforms()
+    
     train_dataset = create_dataset(
-        train_gt,
-        train_img_dir,
+        ds_train,
         train_transform,
         val_transform,
-        num_trials=1,
-        batch_size=1,
-        shuffle=False,
-        repeat=False,
-        prefetch_size=1,
-        num_calls=1
+        num_trials=num_trials,
+        batch_size=batch_size,
+        shuffle_buffer_size=shuffle_buffer_size,
+        prefetch_size=prefetch_size,
+        num_calls=num_calls
     )
-    steps_per_epoch = np.ceil(train_gt.shape[0] / 1).astype(int)
+    val_dataset = create_dataset(
+        ds_val,
+        val_transform,
+        val_transform,
+        num_trials=num_trials,
+        batch_size=batch_size,
+        shuffle_buffer_size=shuffle_buffer_size,
+        prefetch_size=prefetch_size,
+        num_calls=num_calls
+    )
+    return train_dataset, ds_train.shape[0], val_dataset, ds_val.shape[0]
+
+
+
+def get_callbacks(checkpoint_dir):
+    reduce_lr = ReduceLROnPlateau(
+        monitor='loss',
+        factor=0.5,
+        patience=7,
+        min_delta=0.2,
+        min_lr=1e-7,
+        verbose=1
+    )
+
+    early_stopping = EarlyStopping(
+        monitor='loss',
+        patience=20,
+        min_delta=0.2,
+        verbose=1
+    )
+
+    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_dir + "facepoints_model.hdf5",
+        monitor='val_loss',
+        verbose=1,
+        mode='min',
+        save_best_only=True
+    )
+    return [reduce_lr, early_stopping, model_checkpoint_callback]
+
+
+def train_detector(
+        train_gt,
+        train_img_dir,
+        fast_train=False,
+        checkpoint_dir="",
+        batch_size=256,
+):
+    if fast_train:
+        return
 
     model = get_model()
+    
+    ds_train, len_train, ds_val, len_val = process_data(
+        train_gt,
+        train_img_dir,
+        batch_size=batch_size,
+        test_size=0.001,
+        shuffle_buffer_size=10,
+        num_trials=2,
+    )
+
+    steps_per_epoch = np.ceil(len_train / batch_size).astype(int)
+    validation_steps = np.ceil(len_val / batch_size).astype(int)
 
     model.fit(
-        train_dataset,
-        epochs=1,
+        ds_train,
+        epochs=1000,
+        validation_data=ds_val,
         steps_per_epoch=steps_per_epoch,
+        validation_steps=validation_steps,
+        callbacks=get_callbacks(checkpoint_dir)
     )
     return model
 
@@ -252,6 +296,9 @@ def read_img_shapes(filenames, img_dir):
 def detect(model, test_img_dir):
     filenames = os.listdir(test_img_dir)
     test_bs = 4
+    
+    _, val_transform = get_transforms()
+    
     test_dataset = create_dataset(
         None,
         test_img_dir,
