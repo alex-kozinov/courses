@@ -80,7 +80,7 @@ def get_transforms():
 
 def parse_sample(
     sample,
-    dir_path:
+    dir_path
 ):
     num_str = sample['filename']
     coordinates = sample.values[1:]
