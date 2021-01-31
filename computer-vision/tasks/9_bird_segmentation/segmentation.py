@@ -73,7 +73,7 @@ def get_model(img_size):
     # print(model.summary())
     return model
 
-def train_model(train_data_path):
+def train_model(train_data_path, model_dump_dir=''):
     input_dir = train_data_path + "/images/"
     target_dir = train_data_path + "/gt/"
 
@@ -109,7 +109,7 @@ def train_model(train_data_path):
     model = get_model(IMG_SIZE)
     model.compile(optimizer=Adam(1e-5), loss=get_iou_loss, metrics=[get_iou])
     checkpointer = [
-        ModelCheckpoint(filepath="segmentation_model.hdf5", save_weights_only=False,)
+        ModelCheckpoint(filepath=model_dump_dir + "segmentation_model.hdf5", save_weights_only=False,)
     ]
     len_train_gen = len(input_img_paths)
     steps_per_epoch = len_train_gen // BATCH_SIZE
@@ -121,8 +121,8 @@ def train_model(train_data_path):
         callbacks=checkpointer,
         shuffle=False,
     )
-    model1 = load_model("segmentation_model.hdf5", compile=False)
-    model1.save("segmentation_model.hdf5")
+    model1 = load_model(model_dump_dir + "segmentation_model.hdf5", compile=False)
+    model1.save(model_dump_dir + "segmentation_model.hdf5")
     return model
 
 
