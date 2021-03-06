@@ -18,14 +18,14 @@ IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
 EPOCHS = 210
 
-# target metric
+
 def get_iou(gt, pred):
     gt = flatten(gt)
     pred = flatten(pred)
     intersection = sum(gt * pred)
     return (intersection + 0.1) / (sum(gt) + sum(pred) + 0.1 - intersection)
 
-# loss function
+
 def get_iou_loss(gt, pred):
     return -get_iou(gt, pred)
 
@@ -48,7 +48,7 @@ def get_model(img_size):
         include_top=False, weights="imagenet", input_tensor=inputs,
     )
 
-    ### [Second half of the network: upsampling inputs] ###
+
     x = model.output
     previous_block_activation = x
 
@@ -59,18 +59,15 @@ def get_model(img_size):
 
         x = layers.UpSampling2D(2)(x)
 
-        # Project residual
+
         residual = layers.UpSampling2D(2)(previous_block_activation)
         residual = layers.Conv2D(filters, 1, padding="same")(residual)
-        x = layers.add([x, residual])  # Add back residual
-        previous_block_activation = x  # Set aside next residual
+        x = layers.add([x, residual])
+        previous_block_activation = x
 
-    # Add a per-pixel classification layer
     outputs = layers.Conv2D(1, 1, activation="sigmoid")(x)
 
-    # Define the model
     model = tf.keras.Model(inputs, outputs)
-    # print(model.summary())
     return model
 
 def train_model(train_data_path, model_dump_dir=''):

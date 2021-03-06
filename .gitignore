@@ -1,4 +1,5 @@
 .gitignore
+.idea
 .DS_Store
 catboost_info
 __pycache__
